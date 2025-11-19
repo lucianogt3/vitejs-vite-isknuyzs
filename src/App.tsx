@@ -41,7 +41,6 @@ import {
 
 // --- FIREBASE SETUP (PRODUÇÃO) ---
 
-// Configuração Oficial Vôlei HSH
 const firebaseConfig = {
   apiKey: "AIzaSyD27VCcPz1iYk19GcYe_eXloarMWsPVLLg",
   authDomain: "volei-hsh.firebaseapp.com",
@@ -52,13 +51,12 @@ const firebaseConfig = {
   measurementId: "G-RY6ZTZZPFV"
 };
 
-// Inicializa direto com a config oficial, sem verificação de preview
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'volei-hsh'; 
 
-// --- UI COMPONENTS (CUSTOM ALERTS & MODALS) ---
+// --- UI COMPONENTS ---
 
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
@@ -79,7 +77,7 @@ const Toast = ({ message, type, onClose }) => {
 
 const ConfirmModal = ({ title, message, onConfirm, onCancel, processing }) => (
   <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-70 p-4 backdrop-blur-sm animate-fade-in">
-    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden mx-4">
       <div className="p-6 text-center">
         <div className="mx-auto bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 text-red-600">
           <AlertCircle size={32} />
@@ -142,22 +140,19 @@ const AuthScreen = ({ onLogin, addToast }) => {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-gray-900 p-4">
-      <div className="w-full max-w-md bg-gradient-to-b from-red-700 to-red-900 rounded-2xl shadow-2xl p-8 text-center relative overflow-hidden">
-        {/* Decorative Circle */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl pointer-events-none"></div>
-        
-        <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border-4 border-red-500 relative z-10">
+    <div className="h-full w-full flex flex-col items-center justify-center p-6">
+      <div className="w-full max-w-sm bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-8 text-center shadow-2xl">
+        <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg border-4 border-red-600">
           <Trophy className="text-red-600 w-12 h-12" />
         </div>
-        <h1 className="text-3xl font-extrabold text-white mb-1 relative z-10">VÔLEI HSH</h1>
-        <p className="text-red-200 text-sm mb-8 uppercase tracking-widest relative z-10">HSH Volleyball Team</p>
+        <h1 className="text-3xl font-extrabold text-white mb-1 drop-shadow-md">VÔLEI HSH</h1>
+        <p className="text-red-100 text-sm mb-8 uppercase tracking-widest font-medium">HSH Volleyball Team</p>
         
-        <form onSubmit={handleLogin} className="space-y-4 relative z-10">
+        <form onSubmit={handleLogin} className="space-y-4 w-full">
           <input
             type="text"
             placeholder="Seu Nome / Apelido"
-            className="w-full px-4 py-3 rounded-xl border-2 border-transparent focus:border-white bg-white/90 focus:bg-white outline-none text-gray-900 placeholder-gray-500 text-lg transition-all"
+            className="w-full px-5 py-4 rounded-xl border-2 border-transparent focus:border-white bg-white/90 focus:bg-white outline-none text-gray-900 placeholder-gray-500 text-lg transition-all shadow-inner text-center"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -165,13 +160,16 @@ const AuthScreen = ({ onLogin, addToast }) => {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-white text-red-700 font-bold py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-lg active:transform active:scale-95 uppercase tracking-wide flex justify-center items-center gap-2"
+            className="w-full bg-white text-red-700 font-bold py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-xl active:transform active:scale-95 uppercase tracking-wide flex justify-center items-center gap-2 text-lg mt-4"
           >
-            {loading && <Loader2 className="animate-spin" size={20} />}
+            {loading && <Loader2 className="animate-spin" size={24} />}
             {loading ? 'Entrando...' : 'ENTRAR NO TIME'}
           </button>
         </form>
       </div>
+      <p className="text-white/40 text-xs mt-8 text-center max-w-xs">
+        Ao entrar, seu dispositivo lembrará de você para manter sua pontuação no ranking.
+      </p>
     </div>
   );
 };
@@ -215,7 +213,7 @@ const RulesModal = ({ onClose }) => (
   </div>
 );
 
-// 3. MATCH LIST & CREATE
+// 3. MATCH LIST
 const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
   const [matches, setMatches] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -302,8 +300,8 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
       <div className="bg-red-700 p-4 sticky top-0 z-10 shadow-md flex justify-between items-center text-white">
         <div className="flex items-center gap-2">
           <h2 className="text-xl font-bold tracking-wide">JOGOS HSH</h2>
-          <button onClick={() => setShowRules(true)} className="text-red-200 hover:text-white p-1 rounded-full">
-            <Info size={20} />
+          <button onClick={() => setShowRules(true)} className="text-red-200 hover:text-white p-1 rounded-full hover:bg-red-600/50">
+            <Info size={22} />
           </button>
         </div>
         <button onClick={() => setShowCreate(!showCreate)} className="bg-white text-red-700 p-2 rounded-full shadow active:scale-90 transition-transform">
@@ -402,17 +400,17 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
                     </div>
                   </div>
 
-                  {/* CORREÇÃO: Botões mais espaçados */}
-                  <div className="mt-4 flex gap-3">
+                  {/* BOTÕES ESPAÇADOS E ALINHADOS */}
+                  <div className="mt-5 flex gap-4">
                     <button 
                       onClick={() => togglePresence(match)}
                       disabled={!isJoined && spotsLeft <= 0}
-                      className={`flex-1 py-3 rounded-lg font-bold transition-all uppercase text-sm tracking-wide ${
+                      className={`flex-1 py-3 rounded-lg font-bold transition-all uppercase text-sm tracking-wide shadow-sm ${
                         isJoined 
                           ? 'bg-white text-red-600 border-2 border-red-100 hover:bg-red-50' 
                           : spotsLeft <= 0 
                             ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-red-600 text-white shadow-md hover:bg-red-700'
+                            : 'bg-red-600 text-white shadow hover:bg-red-700'
                       }`}
                     >
                       {isJoined ? 'Sair' : spotsLeft <= 0 ? 'Lotado' : 'Confirmar'}
@@ -421,7 +419,7 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
                     {isCreator && (
                       <button 
                         onClick={() => setActiveTab('admin', match)}
-                        className="bg-gray-800 text-white px-4 rounded-lg hover:bg-black"
+                        className="bg-gray-800 text-white px-6 rounded-lg hover:bg-black font-medium text-sm"
                       >
                         Admin
                       </button>
@@ -523,7 +521,6 @@ const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
             <div key={player.uid} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center border border-gray-100">
               <span className="font-medium text-gray-800 truncate w-1/3">{player.name}</span>
               
-              {/* CORREÇÃO: Botões mais espaçados */}
               <div className="flex gap-3">
                 <button 
                   onClick={() => setOutcome(player.uid, 'present')}
@@ -561,7 +558,9 @@ const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
   );
 };
 
-// 5. RANKING SCREEN
+// 5. RANKING & 6. FEED SCREEN (Mantidos iguais)
+// ... (Código do Ranking e Feed iguais ao anterior, já inclusos abaixo no componente App)
+
 const RankingScreen = ({ user }) => {
   const [activeTab, setActiveTab] = useState('monthly');
   const [rankings, setRankings] = useState([]);
@@ -645,7 +644,6 @@ const RankingScreen = ({ user }) => {
   );
 };
 
-// 6. FEED SCREEN
 const FeedScreen = ({ user, addToast }) => {
   const [posts, setPosts] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -721,7 +719,6 @@ export default function App() {
   const [currentView, setCurrentView] = useState('matches');
   const [adminMatchData, setAdminMatchData] = useState(null);
   
-  // Global UI States
   const [toast, setToast] = useState(null);
   const [confirmDialog, setConfirmDialog] = useState(null);
   const [processingConfirm, setProcessingConfirm] = useState(false);
@@ -746,17 +743,29 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-        await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
+      try {
+        // Tenta usar o token do ambiente se existir (apenas para preview interno)
+        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+          await signInWithCustomToken(auth, __initial_auth_token);
+        } else {
+          throw new Error('No token');
+        }
+      } catch (e) {
+        // Se falhar (ex: token mismatch por usar projeto próprio) ou não tiver token,
+        // usa o login anônimo padrão configurado
+        console.log("Fallback para login anônimo:", e);
         await signInAnonymously(auth);
       }
     };
     initAuth();
 
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
+      if (u) {
+        setUser(u);
+      }
+      // Só para de carregar se tiver usuário ou se o processo de tentativa terminar
+      // Pequeno delay para evitar "piscar" a tela de login
+      setTimeout(() => setLoading(false), 500);
     });
     return () => unsubscribe();
   }, []);
@@ -766,21 +775,30 @@ export default function App() {
     if (data) setAdminMatchData(data);
   };
 
-  if (loading) return <div className="h-screen flex flex-col items-center justify-center text-red-600 font-bold animate-pulse gap-2"><Loader2 className="animate-spin" size={32} /> CARREGANDO HSH...</div>;
+  // TELA DE CARREGAMENTO INICIAL (Evita pedir login toda hora)
+  if (loading) return (
+    <div className="min-h-screen w-full bg-gray-900 flex flex-col items-center justify-center text-white">
+      <Loader2 className="animate-spin mb-4 text-red-600" size={48} />
+      <p className="font-bold text-lg tracking-widest animate-pulse">CARREGANDO VÔLEI HSH...</p>
+    </div>
+  );
 
   if (!user || !user.displayName) {
     return (
-      <>
-        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-        <AuthScreen onLogin={setUser} addToast={addToast} />
-      </>
+      // CONTAINER DO LOGIN CENTRALIZADO
+      <div className="min-h-screen w-full bg-gray-900 flex items-center justify-center">
+        <div className="w-full max-w-md bg-gradient-to-b from-red-700 to-red-900 shadow-2xl h-full min-h-screen sm:h-auto sm:min-h-0 sm:rounded-2xl overflow-hidden relative">
+           {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+           <AuthScreen onLogin={setUser} addToast={addToast} />
+        </div>
+      </div>
     );
   }
 
   return (
-    // CORREÇÃO: Fundo cinza escuro e centralização do "celular" para desktop
-    <div className="min-h-screen w-full bg-gray-800 flex justify-center">
-      <div className="w-full max-w-md bg-gray-50 shadow-2xl relative overflow-hidden font-sans border-x border-gray-200 min-h-screen">
+    // CONTAINER DO APP PRINCIPAL CENTRALIZADO
+    <div className="min-h-screen w-full bg-gray-900 flex justify-center items-start sm:items-center py-0 sm:py-8">
+      <div className="w-full max-w-md bg-gray-50 shadow-2xl relative overflow-hidden font-sans sm:rounded-3xl border-x border-gray-200 h-full sm:h-[850px] flex flex-col">
         {/* Global Overlays */}
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         {confirmDialog && (
@@ -793,14 +811,14 @@ export default function App() {
           />
         )}
 
-        <div className="h-full">
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
           {currentView === 'matches' && <MatchesScreen user={user} setActiveTab={handleNav} addToast={addToast} setConfirmDialog={setConfirmDialog} />}
           {currentView === 'ranking' && <RankingScreen user={user} />}
           {currentView === 'feed' && <FeedScreen user={user} addToast={addToast} />}
           {currentView === 'admin' && adminMatchData && <MatchAdmin match={adminMatchData} onBack={() => handleNav('matches')} addToast={addToast} setConfirmDialog={setConfirmDialog} />}
         </div>
 
-        <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-200 flex justify-around py-3 px-2 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+        <div className="bg-white border-t border-gray-200 flex justify-around py-3 px-2 z-50 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] shrink-0">
           <button 
             onClick={() => handleNav('matches')}
             className={`flex flex-col items-center gap-1 w-1/3 transition-colors ${currentView === 'matches' ? 'text-red-600' : 'text-gray-300 hover:text-gray-500'}`}
@@ -826,7 +844,7 @@ export default function App() {
 
         <button 
           onClick={() => auth.signOut()}
-          className="absolute top-0 right-0 m-2 text-red-100 hover:text-white z-50"
+          className="absolute top-4 right-4 m-2 text-red-100 hover:text-red-600 bg-white/80 rounded-full p-1 shadow-sm z-50 opacity-50 hover:opacity-100 transition-all"
           title="Sair"
         >
           <LogOut size={16} />
