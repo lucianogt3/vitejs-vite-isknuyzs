@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
@@ -7,7 +7,9 @@ import {
   updateProfile,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signOut
+  signOut,
+  signInWithCustomToken, // Adicionado: Importação necessária
+  signInAnonymously      // Adicionado: Importação necessária
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -39,7 +41,10 @@ import {
   Loader2,
   Lock,
   Mail,
-  User
+  User,
+  Image as ImageIcon,
+  Clock,
+  History
 } from 'lucide-react';
 
 // --- FIREBASE SETUP (PRODUÇÃO) ---
@@ -58,6 +63,38 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const appId = 'volei-hsh'; 
+
+// --- UTILS (Compressão de Imagem) ---
+const compressImage = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 800; // Reduz para no máximo 800px de largura
+        const scaleSize = MAX_WIDTH / img.width;
+        
+        // Se a imagem for menor que o limite, mantém o tamanho
+        if (scaleSize >= 1) {
+            canvas.width = img.width;
+            canvas.height = img.height;
+        } else {
+            canvas.width = MAX_WIDTH;
+            canvas.height = img.height * scaleSize;
+        }
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Converte para JPEG com qualidade 0.6 para ficar leve no banco
+        resolve(canvas.toDataURL('image/jpeg', 0.6));
+      }
+    }
+    reader.onerror = (error) => reject(error);
+  });
+}
 
 // --- UI COMPONENTS ---
 
@@ -216,7 +253,7 @@ const AuthScreen = ({ addToast }) => {
   );
 };
 
-// 2. RULES MODAL (Mantido)
+// 2. RULES MODAL
 const RulesModal = ({ onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 backdrop-blur-sm animate-fade-in">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -338,6 +375,10 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
   };
 
   const upcomingMatches = matches.filter(m => m.status !== 'finished');
+  // Ordenar finalizados do mais recente para o mais antigo
+  const finishedMatches = matches
+    .filter(m => m.status === 'finished')
+    .sort((a, b) => new Date(b.fullDate) - new Date(a.fullDate));
 
   return (
     <div className="pb-24 relative bg-gray-50 min-h-full">
@@ -397,84 +438,135 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
         </div>
       )}
 
-      <div className="p-4 space-y-4">
-        {upcomingMatches.length === 0 ? (
-          <div className="text-center text-gray-400 mt-20 flex flex-col items-center">
-            <Activity size={48} className="mb-4 text-red-200" />
-            <p>Nenhum jogo marcado.</p>
-            <p className="text-sm">Bora marcar um vôlei?</p>
-          </div>
-        ) : (
-          upcomingMatches.map(match => {
-            const isJoined = match.players?.some(p => p.uid === user.uid);
-            const spotsLeft = match.slots - (match.players?.length || 0);
-            const isCreator = match.creatorId === user.uid;
+      <div className="p-4 space-y-6">
+        
+        {/* SEÇÃO PRÓXIMOS JOGOS */}
+        <div>
+            <h3 className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center gap-2">
+                <Calendar size={16} /> Próximos Jogos
+            </h3>
+            {upcomingMatches.length === 0 ? (
+            <div className="text-center text-gray-400 py-8 flex flex-col items-center bg-white rounded-xl border border-dashed border-gray-300">
+                <Activity size={48} className="mb-4 text-red-100" />
+                <p>Nenhum jogo agendado.</p>
+                <p className="text-xs mt-1">Clique no + lá em cima!</p>
+            </div>
+            ) : (
+            <div className="space-y-4">
+                {upcomingMatches.map(match => {
+                const isJoined = match.players?.some(p => p.uid === user.uid);
+                const spotsLeft = match.slots - (match.players?.length || 0);
+                const isCreator = match.creatorId === user.uid;
 
-            return (
-              <div key={match.id} className="bg-white rounded-xl shadow-sm border-l-4 border-red-500 overflow-hidden">
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2 uppercase">
-                        {match.location}
-                      </h3>
-                      <p className="text-gray-500 text-sm flex items-center gap-2 font-medium">
-                        <Calendar size={14} className="text-red-500" />
-                        {new Date(match.fullDate).toLocaleDateString('pt-BR')} • {new Date(match.fullDate).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
-                      </p>
+                return (
+                <div key={match.id} className="bg-white rounded-xl shadow-sm border-l-4 border-red-500 overflow-hidden">
+                    <div className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                        <div>
+                        <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2 uppercase">
+                            {match.location}
+                        </h3>
+                        <p className="text-gray-500 text-sm flex items-center gap-2 font-medium">
+                            <Clock size={14} className="text-red-500" />
+                            {new Date(match.fullDate).toLocaleDateString('pt-BR')} • {new Date(match.fullDate).toLocaleTimeString('pt-BR', {hour: '2-digit', minute:'2-digit'})}
+                        </p>
+                        </div>
+                        {isCreator && (
+                        <button onClick={() => handleDeleteRequest(match.id)} className="text-gray-300 hover:text-red-500 p-2">
+                            <Trash2 size={18} />
+                        </button>
+                        )}
                     </div>
-                    {isCreator && (
-                      <button onClick={() => handleDeleteRequest(match.id)} className="text-gray-300 hover:text-red-500 p-2">
-                        <Trash2 size={18} />
-                      </button>
-                    )}
-                  </div>
 
-                  <div className="mt-4 bg-gray-50 rounded-lg p-3 border border-gray-100">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="font-bold text-gray-700">Lista ({match.players.length}/{match.slots})</span>
-                      <span className={`font-bold ${spotsLeft > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {spotsLeft > 0 ? `Restam ${spotsLeft}` : 'LOTADO'}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap gap-1">
-                      {match.players.map((player, idx) => (
-                        <span key={idx} className="text-xs bg-white border border-gray-200 px-2 py-1 rounded border-b-2 border-b-gray-200 text-gray-600 font-medium">
-                          {player.name}
+                    <div className="mt-4 bg-gray-50 rounded-lg p-3 border border-gray-100">
+                        <div className="flex justify-between text-sm mb-2">
+                        <span className="font-bold text-gray-700">Lista ({match.players.length}/{match.slots})</span>
+                        <span className={`font-bold ${spotsLeft > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {spotsLeft > 0 ? `Restam ${spotsLeft}` : 'LOTADO'}
                         </span>
-                      ))}
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                        {match.players.map((player, idx) => (
+                            <span key={idx} className="text-xs bg-white border border-gray-200 px-2 py-1 rounded border-b-2 border-b-gray-200 text-gray-600 font-medium">
+                            {player.name}
+                            </span>
+                        ))}
+                        </div>
                     </div>
-                  </div>
 
-                  <div className="mt-5 flex gap-4">
-                    <button 
-                      onClick={() => togglePresence(match)}
-                      disabled={!isJoined && spotsLeft <= 0}
-                      className={`flex-1 py-3 rounded-lg font-bold transition-all uppercase text-sm tracking-wide shadow-sm ${
-                        isJoined 
-                          ? 'bg-white text-red-600 border-2 border-red-100 hover:bg-red-50' 
-                          : spotsLeft <= 0 
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            : 'bg-red-600 text-white shadow hover:bg-red-700'
-                      }`}
-                    >
-                      {isJoined ? 'Sair' : spotsLeft <= 0 ? 'Lotado' : 'Confirmar'}
-                    </button>
-                    
-                    {isCreator && (
-                      <button 
-                        onClick={() => setActiveTab('admin', match)}
-                        className="bg-gray-800 text-white px-6 rounded-lg hover:bg-black font-medium text-sm"
-                      >
-                        Admin
-                      </button>
-                    )}
-                  </div>
+                    <div className="mt-5 flex gap-4">
+                        <button 
+                        onClick={() => togglePresence(match)}
+                        disabled={!isJoined && spotsLeft <= 0}
+                        className={`flex-1 py-3 rounded-lg font-bold transition-all uppercase text-sm tracking-wide shadow-sm ${
+                            isJoined 
+                            ? 'bg-white text-red-600 border-2 border-red-100 hover:bg-red-50' 
+                            : spotsLeft <= 0 
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-red-600 text-white shadow hover:bg-red-700'
+                        }`}
+                        >
+                        {isJoined ? 'Sair' : spotsLeft <= 0 ? 'Lotado' : 'Confirmar'}
+                        </button>
+                        
+                        {isCreator && (
+                        <button 
+                            onClick={() => setActiveTab('admin', match)}
+                            className="bg-gray-800 text-white px-6 rounded-lg hover:bg-black font-medium text-sm"
+                        >
+                            Admin
+                        </button>
+                        )}
+                    </div>
+                    </div>
                 </div>
-              </div>
-            );
-          })
+                );
+            })}
+            </div>
+            )}
+        </div>
+
+        {/* SEÇÃO JOGOS FINALIZADOS */}
+        {finishedMatches.length > 0 && (
+            <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-bold text-gray-400 mb-3 uppercase tracking-wider flex items-center gap-2">
+                    <History size={16} /> Jogos Finalizados
+                </h3>
+                <div className="space-y-4 opacity-80 grayscale hover:grayscale-0 transition-all duration-300">
+                    {finishedMatches.map(match => (
+                        <div key={match.id} className="bg-gray-100 rounded-xl shadow-inner border border-gray-200 overflow-hidden">
+                            <div className="p-4">
+                                <div className="flex justify-between items-center mb-3">
+                                    <div>
+                                        <h3 className="font-bold text-gray-600 text-sm uppercase">{match.location}</h3>
+                                        <p className="text-gray-400 text-xs">
+                                            {new Date(match.fullDate).toLocaleDateString('pt-BR')}
+                                        </p>
+                                    </div>
+                                    <span className="bg-gray-200 text-gray-500 text-[10px] font-bold px-2 py-1 rounded">ENCERRADO</span>
+                                </div>
+                                
+                                {/* Lista de quem participou */}
+                                <div className="flex flex-wrap gap-1">
+                                    {match.players.map((player, idx) => (
+                                        <span key={idx} className={`text-[10px] px-2 py-1 rounded border flex items-center gap-1 font-medium ${
+                                            player.outcome === 'present' ? 'bg-green-100 text-green-700 border-green-200' :
+                                            player.outcome === 'absent' ? 'bg-red-50 text-red-400 border-red-100 line-through decoration-red-400' :
+                                            'bg-white text-gray-500 border-gray-200'
+                                        }`}>
+                                            {player.name}
+                                            {player.outcome === 'present' && <CheckCircle size={10} />}
+                                            {player.outcome === 'absent' && <XCircle size={10} />}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
         )}
+
       </div>
     </div>
   );
@@ -603,7 +695,9 @@ const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
   );
 };
 
-// 5. RANKING SCREEN
+// 5. RANKING & 6. FEED SCREEN (Mantidos iguais)
+// ... (Código do Ranking e Feed iguais ao anterior, já inclusos abaixo no componente App)
+
 const RankingScreen = ({ user }) => {
   const [activeTab, setActiveTab] = useState('monthly');
   const [rankings, setRankings] = useState([]);
@@ -646,7 +740,7 @@ const RankingScreen = ({ user }) => {
       <div className="bg-red-700 p-6 text-white rounded-b-3xl shadow-lg mb-6 relative">
          <h2 className="text-2xl font-bold text-center mb-4 uppercase tracking-widest">Ranking HSH</h2>
          
-         {/* BOTÃO SAIR (Agora no Ranking) */}
+         {/* BOTÃO SAIR */}
          <button 
           onClick={() => signOut(auth)}
           className="absolute top-6 right-6 text-red-200 hover:text-white transition-colors flex flex-col items-center"
@@ -698,10 +792,12 @@ const RankingScreen = ({ user }) => {
   );
 };
 
+// 6. FEED SCREEN (COM UPLOAD DE FOTO)
 const FeedScreen = ({ user, addToast }) => {
   const [posts, setPosts] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const [inputType, setInputType] = useState('text');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!user) return;
@@ -712,12 +808,40 @@ const FeedScreen = ({ user, addToast }) => {
     return () => unsubscribe();
   }, [user]);
 
+  const handleFileSelect = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      // 1. Comprimir a imagem
+      const compressedBase64 = await compressImage(file);
+      
+      // 2. Enviar para o Firestore
+      await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
+        type: 'image',
+        content: compressedBase64,
+        author: user.displayName || user.email.split('@')[0],
+        authorId: user.uid,
+        createdAt: serverTimestamp()
+      });
+      addToast("Foto enviada com sucesso!", "success");
+    } catch (error) {
+      console.error(error);
+      addToast("Erro ao enviar foto.", "error");
+    } finally {
+      setIsUploading(false);
+      // Limpa o input para permitir selecionar a mesma foto de novo se quiser
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const sendPost = async (e) => {
     e.preventDefault();
     if (!newMessage.trim()) return;
     try {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
-        type: inputType === 'photo' ? 'image' : 'text',
+        type: 'text',
         content: newMessage,
         author: user.displayName || user.email.split('@')[0],
         authorId: user.uid,
@@ -752,14 +876,40 @@ const FeedScreen = ({ user, addToast }) => {
           </div>
         ))}
       </div>
+      
+      {/* Área de Input */}
       <div className="bg-white p-3 border-t border-gray-200">
+        {/* Input de Arquivo Escondido */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden" 
+          accept="image/*"
+          capture="environment" // Tenta abrir a câmera traseira direto no celular
+          onChange={handleFileSelect}
+        />
+
         <form onSubmit={sendPost} className="flex gap-2 items-center">
-          <div className="flex bg-gray-100 rounded-full p-1">
-            <button type="button" onClick={() => setInputType('text')} className={`p-2 rounded-full transition-colors ${inputType === 'text' ? 'bg-white shadow text-red-600' : 'text-gray-400'}`}><MessageSquare size={18} /></button>
-            <button type="button" onClick={() => setInputType('photo')} className={`p-2 rounded-full transition-colors ${inputType === 'photo' ? 'bg-white shadow text-red-600' : 'text-gray-400'}`}><Camera size={18} /></button>
-          </div>
-          <input type="text" className="flex-1 bg-gray-100 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-100 border border-transparent focus:border-red-300 transition-all" placeholder={inputType === 'photo' ? "Cole o link da foto aqui..." : "Digite sua mensagem..."} value={newMessage} onChange={e => setNewMessage(e.target.value)} />
-          <button type="submit" className="p-2 bg-red-600 rounded-full text-white shadow hover:bg-red-700 active:scale-90 transition-transform"><Send size={18} /></button>
+          <button 
+            type="button" 
+            onClick={() => fileInputRef.current.click()}
+            disabled={isUploading}
+            className={`p-3 rounded-full transition-colors ${isUploading ? 'bg-gray-100 text-gray-400' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+          >
+            {isUploading ? <Loader2 className="animate-spin" size={20} /> : <Camera size={20} />}
+          </button>
+          
+          <input 
+            type="text" 
+            className="flex-1 bg-gray-100 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-red-100 border border-transparent focus:border-red-300 transition-all" 
+            placeholder="Digite sua mensagem..." 
+            value={newMessage} 
+            onChange={e => setNewMessage(e.target.value)} 
+          />
+          
+          <button type="submit" className="p-3 bg-red-600 rounded-full text-white shadow hover:bg-red-700 active:scale-90 transition-transform">
+            <Send size={20} />
+          </button>
         </form>
       </div>
     </div>
@@ -799,19 +949,12 @@ export default function App() {
     const initAuth = async () => {
       if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
         await signInWithCustomToken(auth, __initial_auth_token);
-      } else {
-        // Tenta logar anonimamente em background (opcional, se quiser manter o fluxo antigo)
-        // Mas como agora temos AuthScreen completa, melhor esperar
-      }
+      } 
     };
     initAuth();
 
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        setUser(u);
-      } else {
-        setUser(null);
-      }
+      setUser(u);
       setTimeout(() => setLoading(false), 500);
     });
     return () => unsubscribe();
@@ -822,7 +965,7 @@ export default function App() {
     if (data) setAdminMatchData(data);
   };
 
-  // TELA DE CARREGAMENTO INICIAL
+  // TELA DE CARREGAMENTO
   if (loading) return (
     <div className="min-h-screen w-full bg-gray-900 flex flex-col items-center justify-center text-white">
       <Loader2 className="animate-spin mb-4 text-red-600" size={48} />
@@ -830,6 +973,7 @@ export default function App() {
     </div>
   );
 
+  // TELA DE LOGIN
   if (!user) {
     return (
       <div className="min-h-screen w-full bg-gray-900 flex items-center justify-center">
@@ -841,10 +985,10 @@ export default function App() {
     );
   }
 
+  // APP PRINCIPAL
   return (
     <div className="min-h-screen w-full bg-gray-900 flex justify-center items-start sm:items-center py-0 sm:py-8">
       <div className="w-full max-w-md bg-gray-50 shadow-2xl relative overflow-hidden font-sans sm:rounded-3xl border-x border-gray-200 h-full sm:h-[850px] flex flex-col">
-        {/* Global Overlays */}
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         {confirmDialog && (
           <ConfirmModal 
@@ -886,9 +1030,6 @@ export default function App() {
             <span className="text-[10px] font-bold tracking-wide uppercase">Galera</span>
           </button>
         </div>
-
-        {/* Botão Flutuante Global REMOVIDO (Agora está dentro do RankingScreen) */}
-        
       </div>
     </div>
   );
