@@ -1,12 +1,13 @@
 // @ts-nocheck
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
   getAuth, 
-  signInAnonymously, 
   onAuthStateChanged, 
-  signInWithCustomToken,
-  updateProfile
+  updateProfile,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut
 } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -26,7 +27,6 @@ import {
   Calendar, 
   MessageSquare, 
   Plus, 
-  MapPin, 
   CheckCircle, 
   XCircle, 
   Trash2,
@@ -36,7 +36,10 @@ import {
   Info,
   AlertCircle,
   Activity,
-  Loader2
+  Loader2,
+  Lock,
+  Mail,
+  User
 } from 'lucide-react';
 
 // --- FIREBASE SETUP (PRODUÇÃO) ---
@@ -107,33 +110,40 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, processing }) => (
 
 // --- SCREENS ---
 
-// 1. AUTH SCREEN
-const AuthScreen = ({ onLogin, addToast }) => {
+// 1. AUTH SCREEN (EMAIL & SENHA)
+const AuthScreen = ({ addToast }) => {
+  const [isLogin, setIsLogin] = useState(true); // Alterna entre Login e Cadastro
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!email.trim() || !password.trim()) return;
+    if (!isLogin && !name.trim()) return;
+    
     setLoading(true);
 
     try {
-      let currentUser = auth.currentUser;
-      if (!currentUser) {
-        const userCredential = await signInAnonymously(auth);
-        currentUser = userCredential.user;
-      }
-      await updateProfile(currentUser, { displayName: name });
-      onLogin({ ...currentUser, displayName: name });
-    } catch (error) {
-      console.error("Login Error", error);
-      if (error.code === 'auth/configuration-not-found') {
-        addToast("Erro: Ative o 'Login Anônimo' no painel Firebase.", "error");
-      } else if (error.code === 'auth/operation-not-allowed') {
-        addToast("Erro: Login Anônimo não habilitado.", "error");
+      if (isLogin) {
+        // Login
+        await signInWithEmailAndPassword(auth, email, password);
       } else {
-        addToast("Erro ao conectar. Verifique sua internet.", "error");
+        // Cadastro
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        await updateProfile(userCredential.user, { displayName: name });
+        // Força recarregar o usuário para pegar o nome atualizado
+        await userCredential.user.reload();
       }
+    } catch (error) {
+      console.error("Auth Error", error);
+      let msg = "Erro ao conectar.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') msg = "Email ou senha incorretos.";
+      if (error.code === 'auth/email-already-in-use') msg = "Este email já está cadastrado.";
+      if (error.code === 'auth/weak-password') msg = "A senha deve ter pelo menos 6 caracteres.";
+      if (error.code === 'auth/invalid-email') msg = "Email inválido.";
+      addToast(msg, "error");
     } finally {
       setLoading(false);
     }
@@ -141,40 +151,75 @@ const AuthScreen = ({ onLogin, addToast }) => {
 
   return (
     <div className="h-full w-full flex flex-col items-center justify-center p-6">
-      <div className="w-full max-w-sm bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-8 text-center shadow-2xl">
-        <div className="bg-white w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg border-4 border-red-600">
-          <Trophy className="text-red-600 w-12 h-12" />
+      <div className="w-full max-w-sm bg-white/10 backdrop-blur-lg rounded-2xl border border-white/20 p-8 text-center shadow-2xl animate-fade-in">
+        <div className="bg-white w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg border-4 border-red-600">
+          <Trophy className="text-red-600 w-10 h-10" />
         </div>
-        <h1 className="text-3xl font-extrabold text-white mb-1 drop-shadow-md">VÔLEI HSH</h1>
-        <p className="text-red-100 text-sm mb-8 uppercase tracking-widest font-medium">HSH Volleyball Team</p>
+        <h1 className="text-2xl font-extrabold text-white mb-1 drop-shadow-md">VÔLEI HSH</h1>
+        <p className="text-red-100 text-xs mb-6 uppercase tracking-widest font-medium">
+          {isLogin ? 'Bem-vindo de volta!' : 'Crie sua conta'}
+        </p>
         
-        <form onSubmit={handleLogin} className="space-y-4 w-full">
-          <input
-            type="text"
-            placeholder="Seu Nome / Apelido"
-            className="w-full px-5 py-4 rounded-xl border-2 border-transparent focus:border-white bg-white/90 focus:bg-white outline-none text-gray-900 placeholder-gray-500 text-lg transition-all shadow-inner text-center"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-          />
+        <form onSubmit={handleSubmit} className="space-y-3 w-full">
+          {!isLogin && (
+            <div className="relative">
+              <User className="absolute left-3 top-3.5 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="Seu Nome / Apelido"
+                className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/90 focus:bg-white outline-none text-gray-900 text-sm transition-all shadow-inner"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required={!isLogin}
+              />
+            </div>
+          )}
+          
+          <div className="relative">
+            <Mail className="absolute left-3 top-3.5 text-gray-400" size={20} />
+            <input
+              type="email"
+              placeholder="Seu Email"
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/90 focus:bg-white outline-none text-gray-900 text-sm transition-all shadow-inner"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="relative">
+            <Lock className="absolute left-3 top-3.5 text-gray-400" size={20} />
+            <input
+              type="password"
+              placeholder="Sua Senha"
+              className="w-full pl-10 pr-4 py-3 rounded-xl bg-white/90 focus:bg-white outline-none text-gray-900 text-sm transition-all shadow-inner"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </div>
+
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-white text-red-700 font-bold py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-xl active:transform active:scale-95 uppercase tracking-wide flex justify-center items-center gap-2 text-lg mt-4"
+            className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors shadow-xl active:transform active:scale-95 uppercase tracking-wide flex justify-center items-center gap-2 text-sm mt-2"
           >
-            {loading && <Loader2 className="animate-spin" size={24} />}
-            {loading ? 'Entrando...' : 'ENTRAR NO TIME'}
+            {loading ? <Loader2 className="animate-spin" size={20} /> : (isLogin ? 'ENTRAR' : 'CADASTRAR')}
           </button>
         </form>
+
+        <button 
+          onClick={() => setIsLogin(!isLogin)}
+          className="mt-6 text-white/80 text-xs hover:text-white hover:underline transition-all"
+        >
+          {isLogin ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça Login'}
+        </button>
       </div>
-      <p className="text-white/40 text-xs mt-8 text-center max-w-xs">
-        Ao entrar, seu dispositivo lembrará de você para manter sua pontuação no ranking.
-      </p>
     </div>
   );
 };
 
-// 2. RULES MODAL
+// 2. RULES MODAL (Mantido)
 const RulesModal = ({ onClose }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 p-4 backdrop-blur-sm animate-fade-in">
     <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -242,7 +287,7 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
         ...newMatch,
         fullDate: fullDate.toISOString(),
         creatorId: user.uid,
-        creatorName: user.displayName,
+        creatorName: user.displayName || user.email.split('@')[0], // Fallback se não tiver nome
         players: [], 
         status: 'open', 
         createdAt: serverTimestamp()
@@ -270,7 +315,11 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
           addToast("Partida lotada!", "error");
           return;
         }
-        const newPlayer = { uid: user.uid, name: user.displayName, status: 'confirmed' };
+        const newPlayer = { 
+          uid: user.uid, 
+          name: user.displayName || user.email.split('@')[0], 
+          status: 'confirmed' 
+        };
         await updateDoc(matchRef, { players: [...match.players, newPlayer] });
         addToast("Presença confirmada! +5 pts (se for).", "success");
       }
@@ -400,7 +449,6 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
                     </div>
                   </div>
 
-                  {/* BOTÕES ESPAÇADOS E ALINHADOS */}
                   <div className="mt-5 flex gap-4">
                     <button 
                       onClick={() => togglePresence(match)}
@@ -435,7 +483,7 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
   );
 };
 
-// 4. MATCH ADMIN
+// 4. MATCH ADMIN (Mantido igual, só com fallback de nome)
 const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
   const [players, setPlayers] = useState(match.players || []);
 
@@ -558,9 +606,7 @@ const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
   );
 };
 
-// 5. RANKING & 6. FEED SCREEN (Mantidos iguais)
-// ... (Código do Ranking e Feed iguais ao anterior, já inclusos abaixo no componente App)
-
+// 5. RANKING SCREEN
 const RankingScreen = ({ user }) => {
   const [activeTab, setActiveTab] = useState('monthly');
   const [rankings, setRankings] = useState([]);
@@ -644,6 +690,7 @@ const RankingScreen = ({ user }) => {
   );
 };
 
+// 6. FEED SCREEN
 const FeedScreen = ({ user, addToast }) => {
   const [posts, setPosts] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -665,7 +712,7 @@ const FeedScreen = ({ user, addToast }) => {
       await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'feed'), {
         type: inputType === 'photo' ? 'image' : 'text',
         content: newMessage,
-        author: user.displayName,
+        author: user.displayName || user.email.split('@')[0],
         authorId: user.uid,
         createdAt: serverTimestamp()
       });
@@ -742,30 +789,10 @@ export default function App() {
   };
 
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        // Tenta usar o token do ambiente se existir (apenas para preview interno)
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          throw new Error('No token');
-        }
-      } catch (e) {
-        // Se falhar (ex: token mismatch por usar projeto próprio) ou não tiver token,
-        // usa o login anônimo padrão configurado
-        console.log("Fallback para login anônimo:", e);
-        await signInAnonymously(auth);
-      }
-    };
-    initAuth();
-
+    // Apenas monitora o estado. O login é feito na tela de AuthScreen
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      if (u) {
-        setUser(u);
-      }
-      // Só para de carregar se tiver usuário ou se o processo de tentativa terminar
-      // Pequeno delay para evitar "piscar" a tela de login
-      setTimeout(() => setLoading(false), 500);
+      setUser(u);
+      setLoading(false); // Para o loading assim que o firebase decidir se tem user ou nao
     });
     return () => unsubscribe();
   }, []);
@@ -775,7 +802,6 @@ export default function App() {
     if (data) setAdminMatchData(data);
   };
 
-  // TELA DE CARREGAMENTO INICIAL (Evita pedir login toda hora)
   if (loading) return (
     <div className="min-h-screen w-full bg-gray-900 flex flex-col items-center justify-center text-white">
       <Loader2 className="animate-spin mb-4 text-red-600" size={48} />
@@ -783,23 +809,20 @@ export default function App() {
     </div>
   );
 
-  if (!user || !user.displayName) {
+  if (!user) {
     return (
-      // CONTAINER DO LOGIN CENTRALIZADO
       <div className="min-h-screen w-full bg-gray-900 flex items-center justify-center">
         <div className="w-full max-w-md bg-gradient-to-b from-red-700 to-red-900 shadow-2xl h-full min-h-screen sm:h-auto sm:min-h-0 sm:rounded-2xl overflow-hidden relative">
            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-           <AuthScreen onLogin={setUser} addToast={addToast} />
+           <AuthScreen addToast={addToast} />
         </div>
       </div>
     );
   }
 
   return (
-    // CONTAINER DO APP PRINCIPAL CENTRALIZADO
     <div className="min-h-screen w-full bg-gray-900 flex justify-center items-start sm:items-center py-0 sm:py-8">
       <div className="w-full max-w-md bg-gray-50 shadow-2xl relative overflow-hidden font-sans sm:rounded-3xl border-x border-gray-200 h-full sm:h-[850px] flex flex-col">
-        {/* Global Overlays */}
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         {confirmDialog && (
           <ConfirmModal 
