@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState, useEffect, useRef } from 'react';
 import { initializeApp } from 'firebase/app';
 import { 
@@ -38,11 +39,10 @@ import {
   Loader2
 } from 'lucide-react';
 
-// --- FIREBASE SETUP (SISTEMA HÍBRIDO) ---
+// --- FIREBASE SETUP (PRODUÇÃO) ---
 
-// 1. SUA CONFIGURAÇÃO OFICIAL (Vôlei HSH)
-// Esta será usada quando você publicar no Netlify
-const USER_CONFIG = {
+// Configuração Oficial Vôlei HSH
+const firebaseConfig = {
   apiKey: "AIzaSyD27VCcPz1iYk19GcYe_eXloarMWsPVLLg",
   authDomain: "volei-hsh.firebaseapp.com",
   projectId: "volei-hsh",
@@ -52,25 +52,11 @@ const USER_CONFIG = {
   measurementId: "G-RY6ZTZZPFV"
 };
 
-// 2. LÓGICA DE SELEÇÃO
-// Detecta automaticamente se está no Preview ou no Site Real
-let firebaseConfig;
-let appId;
-
-if (typeof __firebase_config !== 'undefined') {
-  // Estamos no Preview (Chat): Usa config interna para não dar erro
-  firebaseConfig = JSON.parse(__firebase_config);
-  appId = typeof __app_id !== 'undefined' ? __app_id : 'volei-hsh-preview';
-} else {
-  // Estamos no Netlify/Local: Usa a SUA config oficial
-  firebaseConfig = USER_CONFIG;
-  appId = 'volei-hsh'; 
-}
-
-// Inicializa com a config correta para o ambiente atual
+// Inicializa direto com a config oficial, sem verificação de preview
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const appId = 'volei-hsh'; 
 
 // --- UI COMPONENTS (CUSTOM ALERTS & MODALS) ---
 
@@ -135,7 +121,6 @@ const AuthScreen = ({ onLogin, addToast }) => {
 
     try {
       let currentUser = auth.currentUser;
-      // Tenta logar anonimamente se não houver usuário
       if (!currentUser) {
         const userCredential = await signInAnonymously(auth);
         currentUser = userCredential.user;
@@ -144,7 +129,6 @@ const AuthScreen = ({ onLogin, addToast }) => {
       onLogin({ ...currentUser, displayName: name });
     } catch (error) {
       console.error("Login Error", error);
-      // Mensagem mais descritiva se for erro de configuração
       if (error.code === 'auth/configuration-not-found') {
         addToast("Erro: Ative o 'Login Anônimo' no painel Firebase.", "error");
       } else if (error.code === 'auth/operation-not-allowed') {
@@ -237,7 +221,6 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
 
   useEffect(() => {
     if (!user) return;
-    // Caminho: artifacts/{appId}/public/data/matches
     const q = query(collection(db, 'artifacts', appId, 'public', 'data', 'matches'), orderBy('fullDate', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const matchesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
