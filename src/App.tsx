@@ -86,7 +86,7 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, processing }) => (
         </div>
         <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
         <p className="text-gray-500 text-sm mb-6">{message}</p>
-        <div className="flex gap-3">
+        <div className="flex gap-4 justify-center">
           <button 
             onClick={onCancel}
             disabled={processing}
@@ -142,19 +142,22 @@ const AuthScreen = ({ onLogin, addToast }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-red-700 to-red-900 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md text-center">
-        <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border-4 border-red-500">
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-900 p-4">
+      <div className="w-full max-w-md bg-gradient-to-b from-red-700 to-red-900 rounded-2xl shadow-2xl p-8 text-center relative overflow-hidden">
+        {/* Decorative Circle */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-64 h-64 bg-white opacity-5 rounded-full blur-3xl pointer-events-none"></div>
+        
+        <div className="bg-gray-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border-4 border-red-500 relative z-10">
           <Trophy className="text-red-600 w-12 h-12" />
         </div>
-        <h1 className="text-3xl font-extrabold text-red-700 mb-1">VÔLEI HSH</h1>
-        <p className="text-gray-400 text-sm mb-8 uppercase tracking-widest">HSH Volleyball Team</p>
+        <h1 className="text-3xl font-extrabold text-white mb-1 relative z-10">VÔLEI HSH</h1>
+        <p className="text-red-200 text-sm mb-8 uppercase tracking-widest relative z-10">HSH Volleyball Team</p>
         
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleLogin} className="space-y-4 relative z-10">
           <input
             type="text"
             placeholder="Seu Nome / Apelido"
-            className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:outline-none focus:border-red-500 focus:ring-0 text-lg transition-all"
+            className="w-full px-4 py-3 rounded-xl border-2 border-transparent focus:border-white bg-white/90 focus:bg-white outline-none text-gray-900 placeholder-gray-500 text-lg transition-all"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -162,7 +165,7 @@ const AuthScreen = ({ onLogin, addToast }) => {
           <button 
             type="submit" 
             disabled={loading}
-            className="w-full bg-red-600 text-white font-bold py-4 rounded-xl hover:bg-red-700 transition-colors shadow-lg active:transform active:scale-95 uppercase tracking-wide flex justify-center items-center gap-2"
+            className="w-full bg-white text-red-700 font-bold py-4 rounded-xl hover:bg-gray-100 transition-colors shadow-lg active:transform active:scale-95 uppercase tracking-wide flex justify-center items-center gap-2"
           >
             {loading && <Loader2 className="animate-spin" size={20} />}
             {loading ? 'Entrando...' : 'ENTRAR NO TIME'}
@@ -399,7 +402,8 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
                     </div>
                   </div>
 
-                  <div className="mt-4 flex gap-2">
+                  {/* CORREÇÃO: Botões mais espaçados */}
+                  <div className="mt-4 flex gap-3">
                     <button 
                       onClick={() => togglePresence(match)}
                       disabled={!isJoined && spotsLeft <= 0}
@@ -489,7 +493,7 @@ const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
       if (p.uid === uid) return { ...p, outcome };
       return p;
     });
-    setPlayers(updatedPlayers); // Optimistic update
+    setPlayers(updatedPlayers); 
     
     try {
       const matchRef = doc(db, 'artifacts', appId, 'public', 'data', 'matches', match.id);
@@ -519,7 +523,8 @@ const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
             <div key={player.uid} className="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center border border-gray-100">
               <span className="font-medium text-gray-800 truncate w-1/3">{player.name}</span>
               
-              <div className="flex gap-2">
+              {/* CORREÇÃO: Botões mais espaçados */}
+              <div className="flex gap-3">
                 <button 
                   onClick={() => setOutcome(player.uid, 'present')}
                   className={`px-3 py-1 rounded-md text-sm font-bold transition-all ${
@@ -741,8 +746,6 @@ export default function App() {
 
   useEffect(() => {
     const initAuth = async () => {
-      // Configuração oficial já incluída no topo (e gerenciada dinamicamente).
-      // Mantemos a prioridade do token customizado se houver.
       if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
         await signInWithCustomToken(auth, __initial_auth_token);
       } else {
@@ -775,57 +778,60 @@ export default function App() {
   }
 
   return (
-    <div className="max-w-md mx-auto min-h-screen bg-gray-50 shadow-2xl relative overflow-hidden font-sans border-x border-gray-200">
-      {/* Global Overlays */}
-      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-      {confirmDialog && (
-        <ConfirmModal 
-          title={confirmDialog.title} 
-          message={confirmDialog.message} 
-          onConfirm={handleConfirmAction} 
-          onCancel={() => setConfirmDialog(null)}
-          processing={processingConfirm}
-        />
-      )}
+    // CORREÇÃO: Fundo cinza escuro e centralização do "celular" para desktop
+    <div className="min-h-screen w-full bg-gray-800 flex justify-center">
+      <div className="w-full max-w-md bg-gray-50 shadow-2xl relative overflow-hidden font-sans border-x border-gray-200 min-h-screen">
+        {/* Global Overlays */}
+        {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+        {confirmDialog && (
+          <ConfirmModal 
+            title={confirmDialog.title} 
+            message={confirmDialog.message} 
+            onConfirm={handleConfirmAction} 
+            onCancel={() => setConfirmDialog(null)}
+            processing={processingConfirm}
+          />
+        )}
 
-      <div className="h-full">
-        {currentView === 'matches' && <MatchesScreen user={user} setActiveTab={handleNav} addToast={addToast} setConfirmDialog={setConfirmDialog} />}
-        {currentView === 'ranking' && <RankingScreen user={user} />}
-        {currentView === 'feed' && <FeedScreen user={user} addToast={addToast} />}
-        {currentView === 'admin' && adminMatchData && <MatchAdmin match={adminMatchData} onBack={() => handleNav('matches')} addToast={addToast} setConfirmDialog={setConfirmDialog} />}
+        <div className="h-full">
+          {currentView === 'matches' && <MatchesScreen user={user} setActiveTab={handleNav} addToast={addToast} setConfirmDialog={setConfirmDialog} />}
+          {currentView === 'ranking' && <RankingScreen user={user} />}
+          {currentView === 'feed' && <FeedScreen user={user} addToast={addToast} />}
+          {currentView === 'admin' && adminMatchData && <MatchAdmin match={adminMatchData} onBack={() => handleNav('matches')} addToast={addToast} setConfirmDialog={setConfirmDialog} />}
+        </div>
+
+        <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-200 flex justify-around py-3 px-2 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <button 
+            onClick={() => handleNav('matches')}
+            className={`flex flex-col items-center gap-1 w-1/3 transition-colors ${currentView === 'matches' ? 'text-red-600' : 'text-gray-300 hover:text-gray-500'}`}
+          >
+            <Calendar size={24} strokeWidth={currentView === 'matches' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold tracking-wide uppercase">Jogos</span>
+          </button>
+          <button 
+            onClick={() => handleNav('ranking')}
+            className={`flex flex-col items-center gap-1 w-1/3 transition-colors ${currentView === 'ranking' ? 'text-red-600' : 'text-gray-300 hover:text-gray-500'}`}
+          >
+            <Trophy size={24} strokeWidth={currentView === 'ranking' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold tracking-wide uppercase">Ranking</span>
+          </button>
+          <button 
+            onClick={() => handleNav('feed')}
+            className={`flex flex-col items-center gap-1 w-1/3 transition-colors ${currentView === 'feed' ? 'text-red-600' : 'text-gray-300 hover:text-gray-500'}`}
+          >
+            <MessageSquare size={24} strokeWidth={currentView === 'feed' ? 2.5 : 2} />
+            <span className="text-[10px] font-bold tracking-wide uppercase">Galera</span>
+          </button>
+        </div>
+
+        <button 
+          onClick={() => auth.signOut()}
+          className="absolute top-0 right-0 m-2 text-red-100 hover:text-white z-50"
+          title="Sair"
+        >
+          <LogOut size={16} />
+        </button>
       </div>
-
-      <div className="fixed bottom-0 w-full max-w-md bg-white border-t border-gray-200 flex justify-around py-3 px-2 z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-        <button 
-          onClick={() => handleNav('matches')}
-          className={`flex flex-col items-center gap-1 w-1/3 transition-colors ${currentView === 'matches' ? 'text-red-600' : 'text-gray-300 hover:text-gray-500'}`}
-        >
-          <Calendar size={24} strokeWidth={currentView === 'matches' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold tracking-wide uppercase">Jogos</span>
-        </button>
-        <button 
-          onClick={() => handleNav('ranking')}
-          className={`flex flex-col items-center gap-1 w-1/3 transition-colors ${currentView === 'ranking' ? 'text-red-600' : 'text-gray-300 hover:text-gray-500'}`}
-        >
-          <Trophy size={24} strokeWidth={currentView === 'ranking' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold tracking-wide uppercase">Ranking</span>
-        </button>
-        <button 
-          onClick={() => handleNav('feed')}
-          className={`flex flex-col items-center gap-1 w-1/3 transition-colors ${currentView === 'feed' ? 'text-red-600' : 'text-gray-300 hover:text-gray-500'}`}
-        >
-          <MessageSquare size={24} strokeWidth={currentView === 'feed' ? 2.5 : 2} />
-          <span className="text-[10px] font-bold tracking-wide uppercase">Galera</span>
-        </button>
-      </div>
-
-      <button 
-        onClick={() => auth.signOut()}
-        className="absolute top-0 right-0 m-2 text-red-100 hover:text-white z-50"
-        title="Sair"
-      >
-        <LogOut size={16} />
-      </button>
     </div>
   );
 }
