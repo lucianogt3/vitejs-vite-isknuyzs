@@ -112,7 +112,7 @@ const ConfirmModal = ({ title, message, onConfirm, onCancel, processing }) => (
 
 // 1. AUTH SCREEN (EMAIL & SENHA)
 const AuthScreen = ({ addToast }) => {
-  const [isLogin, setIsLogin] = useState(true); // Alterna entre Login e Cadastro
+  const [isLogin, setIsLogin] = useState(true);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -127,13 +127,10 @@ const AuthScreen = ({ addToast }) => {
 
     try {
       if (isLogin) {
-        // Login
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        // Cadastro
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         await updateProfile(userCredential.user, { displayName: name });
-        // Força recarregar o usuário para pegar o nome atualizado
         await userCredential.user.reload();
       }
     } catch (error) {
@@ -287,7 +284,7 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
         ...newMatch,
         fullDate: fullDate.toISOString(),
         creatorId: user.uid,
-        creatorName: user.displayName || user.email.split('@')[0], // Fallback se não tiver nome
+        creatorName: user.displayName || user.email.split('@')[0],
         players: [], 
         status: 'open', 
         createdAt: serverTimestamp()
@@ -483,7 +480,7 @@ const MatchesScreen = ({ user, setActiveTab, addToast, setConfirmDialog }) => {
   );
 };
 
-// 4. MATCH ADMIN (Mantido igual, só com fallback de nome)
+// 4. MATCH ADMIN
 const MatchAdmin = ({ match, onBack, addToast, setConfirmDialog }) => {
   const [players, setPlayers] = useState(match.players || []);
 
@@ -646,8 +643,19 @@ const RankingScreen = ({ user }) => {
 
   return (
     <div className="pb-24 bg-gray-50 min-h-full">
-      <div className="bg-red-700 p-6 text-white rounded-b-3xl shadow-lg mb-6">
-        <h2 className="text-2xl font-bold text-center mb-4 uppercase tracking-widest">Ranking HSH</h2>
+      <div className="bg-red-700 p-6 text-white rounded-b-3xl shadow-lg mb-6 relative">
+         <h2 className="text-2xl font-bold text-center mb-4 uppercase tracking-widest">Ranking HSH</h2>
+         
+         {/* BOTÃO SAIR (Agora no Ranking) */}
+         <button 
+          onClick={() => signOut(auth)}
+          className="absolute top-6 right-6 text-red-200 hover:text-white transition-colors flex flex-col items-center"
+          title="Sair"
+        >
+          <LogOut size={20} />
+          <span className="text-[10px] font-medium">Sair</span>
+        </button>
+
         <div className="flex bg-red-900 p-1 rounded-xl">
           <button 
             onClick={() => setActiveTab('monthly')}
@@ -690,7 +698,6 @@ const RankingScreen = ({ user }) => {
   );
 };
 
-// 6. FEED SCREEN
 const FeedScreen = ({ user, addToast }) => {
   const [posts, setPosts] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -789,10 +796,23 @@ export default function App() {
   };
 
   useEffect(() => {
-    // Apenas monitora o estado. O login é feito na tela de AuthScreen
+    const initAuth = async () => {
+      if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+        await signInWithCustomToken(auth, __initial_auth_token);
+      } else {
+        // Tenta logar anonimamente em background (opcional, se quiser manter o fluxo antigo)
+        // Mas como agora temos AuthScreen completa, melhor esperar
+      }
+    };
+    initAuth();
+
     const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false); // Para o loading assim que o firebase decidir se tem user ou nao
+      if (u) {
+        setUser(u);
+      } else {
+        setUser(null);
+      }
+      setTimeout(() => setLoading(false), 500);
     });
     return () => unsubscribe();
   }, []);
@@ -802,6 +822,7 @@ export default function App() {
     if (data) setAdminMatchData(data);
   };
 
+  // TELA DE CARREGAMENTO INICIAL
   if (loading) return (
     <div className="min-h-screen w-full bg-gray-900 flex flex-col items-center justify-center text-white">
       <Loader2 className="animate-spin mb-4 text-red-600" size={48} />
@@ -823,6 +844,7 @@ export default function App() {
   return (
     <div className="min-h-screen w-full bg-gray-900 flex justify-center items-start sm:items-center py-0 sm:py-8">
       <div className="w-full max-w-md bg-gray-50 shadow-2xl relative overflow-hidden font-sans sm:rounded-3xl border-x border-gray-200 h-full sm:h-[850px] flex flex-col">
+        {/* Global Overlays */}
         {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
         {confirmDialog && (
           <ConfirmModal 
@@ -865,13 +887,8 @@ export default function App() {
           </button>
         </div>
 
-        <button 
-          onClick={() => auth.signOut()}
-          className="absolute top-4 right-4 m-2 text-red-100 hover:text-red-600 bg-white/80 rounded-full p-1 shadow-sm z-50 opacity-50 hover:opacity-100 transition-all"
-          title="Sair"
-        >
-          <LogOut size={16} />
-        </button>
+        {/* Botão Flutuante Global REMOVIDO (Agora está dentro do RankingScreen) */}
+        
       </div>
     </div>
   );
